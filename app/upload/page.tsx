@@ -12,6 +12,7 @@ export default function UploadPage() {
   const router = useRouter();
   const { setResult } = useAnalysis();
   const [phase, setPhase] = useState<Phase>('idle');
+  const [username, setUsername] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [logs, setLogs] = useState<{ line: string; tone: string }[]>([]);
@@ -49,6 +50,7 @@ export default function UploadPage() {
     });
 
     const formData = new FormData();
+    formData.append('username', username.trim());
     files.forEach(f => formData.append('screenshots', f));
 
     try {
@@ -102,6 +104,28 @@ export default function UploadPage() {
             </div>
             <div className="right">
               We support the Overall, Ranked, and Operator tabs. For the sharpest read, upload a full-page capture at 1080p or higher. Supports PNG, JPG, WebP · max 8MB.
+            </div>
+          </div>
+
+          {/* USERNAME INPUT */}
+          <div className="card" style={{ marginBottom: 28 }}>
+            <div className="card-h">
+              <div className="t">OPERATOR ID · <b>REQUIRED</b></div>
+              {username.trim() && <div className="r" style={{ color: 'var(--good)' }}>✓ CONFIRMED</div>}
+            </div>
+            <div className="field">
+              <div className="field-label"><span>YOUR UBISOFT USERNAME</span>{username.trim() && <b>✓</b>}</div>
+              <input
+                className="input mono"
+                type="text"
+                placeholder="e.g. vexel.py"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                disabled={busy}
+              />
+              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 10, color: 'var(--fg-mute)', letterSpacing: '0.12em', lineHeight: 1.5, marginTop: 2 }}>
+                Exact username as shown on Tracker Network. This prevents the AI from misreading operator or map names as your gamertag.
+              </div>
             </div>
           </div>
 
@@ -211,8 +235,9 @@ export default function UploadPage() {
                     className="btn primary"
                     style={{ width: '100%', height: 48, marginTop: 20 }}
                     onClick={submit}
+                    disabled={!username.trim()}
                   >
-                    <span>ANALYZE {files.length} SCREENSHOT{files.length > 1 ? 'S' : ''}</span>
+                    <span>{!username.trim() ? 'ENTER USERNAME ABOVE' : `ANALYZE ${files.length} SCREENSHOT${files.length > 1 ? 'S' : ''}`}</span>
                     <span className="arrow">→</span>
                   </button>
                 </div>

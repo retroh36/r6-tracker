@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const client = new Anthropic();
 const MODEL = 'claude-opus-4-5';
 
-async function extractStats(imageBlocks: any[]) {
+async function extractStats(imageBlocks: any[], username: string) {
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 2048,
@@ -14,8 +14,10 @@ async function extractStats(imageBlocks: any[]) {
         ...imageBlocks,
         {
           type: 'text',
-          text: `Extract Rainbow Six Siege stats from these Tracker Network screenshots into ONE JSON object:
-- username, platform (PC/XBOX/PS), rank
+          text: `The player's username is '${username}'. Return this exact string as the username field. Do NOT infer the username from operator names, map names, or UI labels — it was provided explicitly.
+
+Extract Rainbow Six Siege stats from these Tracker Network screenshots into ONE JSON object:
+- username (use '${username}' exactly), platform (PC/XBOX/PS), rank
 - kd (K/D ratio as number), winRate (percentage as number), headshotPct (percentage as number)
 - matchesPlayed (number), hoursPlayed (number or null)
 - avgDamage (per round if visible, number or null)
@@ -86,7 +88,12 @@ Return ONLY the JSON, no code fences.`,
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    const username = (formData.get('username') as string || '').trim();
     const files = formData.getAll('screenshots');
+
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
 
     if (files.length === 0) {
       return NextResponse.json({ error: 'No screenshots provided' }, { status: 400 });
@@ -115,7 +122,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const stats = await extractStats(imageBlocks);
+    const stats = await extractStats(imageBlocks, username);
     const coaching = await coachPlayer(stats);
 
     return NextResponse.json({ stats, coaching });
