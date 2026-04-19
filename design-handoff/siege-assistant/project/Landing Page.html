@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>R6 Squad Analyzer — Tactical coaching for ranked squads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        oklch(0.155 0.010 250);
+    --bg-2:      oklch(0.195 0.012 250);
+    --bg-3:      oklch(0.230 0.014 250);
+    --panel:     oklch(0.205 0.013 250);
+    --line:      oklch(0.300 0.015 250);
+    --line-dim:  oklch(0.250 0.012 250);
+    --fg:        oklch(0.965 0.005 250);
+    --fg-dim:    oklch(0.760 0.012 250);
+    --fg-mute:   oklch(0.560 0.015 250);
+    --accent:    oklch(0.705 0.205 38);   /* hot orange-red */
+    --accent-2:  oklch(0.780 0.165 75);   /* amber */
+    --good:      oklch(0.780 0.155 155);  /* tactical green */
+    --danger:    oklch(0.650 0.230 25);   /* red */
+    --grid:      oklch(0.230 0.014 250 / 0.6);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  body{
+    overflow-x:hidden;
+    background:
+      radial-gradient(1200px 600px at 75% -10%, oklch(0.705 0.205 38 / 0.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 40%, oklch(0.520 0.140 260 / 0.10), transparent 60%),
+      var(--bg);
+  }
+
+  /* ---------- utility ---------- */
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:0.02em}
+  .display{font-family:'Space Grotesk',system-ui,sans-serif;letter-spacing:-0.02em}
+  .tac{font-family:'JetBrains Mono',ui-monospace,monospace;text-transform:uppercase;letter-spacing:0.18em;font-size:11px;color:var(--fg-mute)}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 32px}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+
+  /* bracket corners for tactical framing */
+  .corners{position:relative}
+  .corners::before,.corners::after,
+  .corners > .c-tl,.corners > .c-tr,.corners > .c-bl,.corners > .c-br{
+    content:"";position:absolute;width:14px;height:14px;border-color:var(--accent);border-style:solid;border-width:0;pointer-events:none;
+  }
+  .corners > .c-tl{top:-1px;left:-1px;border-top-width:2px;border-left-width:2px}
+  .corners > .c-tr{top:-1px;right:-1px;border-top-width:2px;border-right-width:2px}
+  .corners > .c-bl{bottom:-1px;left:-1px;border-bottom-width:2px;border-left-width:2px}
+  .corners > .c-br{bottom:-1px;right:-1px;border-bottom-width:2px;border-right-width:2px}
+
+  /* ---------- top bar ---------- */
+  .navwrap{
+    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:linear-gradient(to bottom, oklch(0.155 0.010 250 / 0.85), oklch(0.155 0.010 250 / 0.55));
+    border-bottom:1px solid var(--line-dim);
+  }
+  nav{display:flex;align-items:center;justify-content:space-between;height:64px;}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-mark{
+    width:34px;height:34px;position:relative;display:grid;place-items:center;
+    background:linear-gradient(135deg, var(--accent), oklch(0.62 0.22 25));
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  }
+  .brand-mark::after{
+    content:"R6";font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#0c0c10;letter-spacing:-0.02em;
+  }
+  .brand-name{font-family:'Space Grotesk';font-weight:600;font-size:16px;letter-spacing:0.01em}
+  .brand-name span{color:var(--accent)}
+  .nav-links{display:flex;gap:28px;align-items:center}
+  .nav-links a{font-size:13px;color:var(--fg-dim);font-weight:500;transition:color .15s}
+  .nav-links a:hover{color:var(--fg)}
+  .nav-cta{display:flex;gap:10px;align-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 18px;font-size:13px;font-weight:600;
+    font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;
+    border:1px solid var(--line);background:transparent;color:var(--fg);transition:all .15s;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  .btn:hover{border-color:var(--fg-dim);background:var(--bg-2)}
+  .btn.primary{
+    background:var(--accent);color:#0c0c10;border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent), 0 8px 40px -12px oklch(0.705 0.205 38 / 0.6);
+  }
+  .btn.primary:hover{background:oklch(0.750 0.205 38);border-color:oklch(0.750 0.205 38)}
+  .btn .arrow{font-size:14px;letter-spacing:0}
+
+  @media (max-width:800px){
+    .nav-links{display:none}
+    .wrap{padding:0 20px}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;padding:72px 0 96px;
+    border-bottom:1px solid var(--line-dim);
+    overflow:hidden;
+  }
+  .hero::before{
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:0.45;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 80% at 50% 40%, black, transparent 80%);
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 3px, oklch(0 0 0 / 0.04) 3px 4px);
+    opacity:0.5;
+  }
+  .hero-inner{display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center;position:relative;z-index:1}
+  @media (max-width:1040px){ .hero-inner{grid-template-columns:1fr;gap:48px} }
+
+  .status-row{display:flex;align-items:center;gap:14px;margin-bottom:28px;flex-wrap:wrap}
+  .pill{
+    display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;
+    border:1px solid var(--line);background:var(--bg-2);
+    font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:var(--fg-dim);
+  }
+  .dot{width:6px;height:6px;background:var(--good);border-radius:50%;box-shadow:0 0 8px var(--good)}
+  .pill .acc{color:var(--accent)}
+
+  h1.hero-title{
+    font-family:'Space Grotesk';font-weight:700;
+    font-size:clamp(44px, 6.2vw, 88px);line-height:0.95;letter-spacing:-0.035em;
+    margin:0 0 28px;
+  }
+  h1.hero-title .slash{color:var(--accent)}
+  h1.hero-title .bracket{color:var(--fg-mute);font-weight:400}
+  h1.hero-title .outline{
+    -webkit-text-stroke:1.5px var(--fg);color:transparent;
+  }
+
+  .hero-sub{
+    font-size:18px;line-height:1.55;color:var(--fg-dim);max-width:560px;margin:0 0 36px;
+  }
+  .hero-sub strong{color:var(--fg);font-weight:500}
+
+  .hero-ctas{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:44px}
+  .hero-ctas .btn{height:48px;padding:0 22px;font-size:12px}
+
+  .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line-dim);padding-top:24px;max-width:560px}
+  .hero-stat .k{font-family:'Space Grotesk';font-weight:600;font-size:28px;color:var(--fg);letter-spacing:-0.02em}
+  .hero-stat .k .u{font-family:'JetBrains Mono';font-size:14px;color:var(--accent);margin-left:2px}
+  .hero-stat .l{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:var(--fg-mute);margin-top:6px}
+
+  /* ---------- hero dashboard mock ---------- */
+  .dash{
+    position:relative;background:var(--panel);border:1px solid var(--line);
+    padding:18px;
+    box-shadow: 0 40px 120px -40px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0 0 0 / 0.3);
+  }
+  .dash .c-tl,.dash .c-tr,.dash .c-bl,.dash .c-br{width:18px;height:18px}
+
+  .dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .dash-head .title{font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:0.2em;color:var(--fg-dim)}
+  .dash-head .title b{color:var(--fg);font-weight:600}
+  .dash-head .kbd{display:flex;gap:4px}
+  .dash-head .kbd span{width:6px;height:6px;background:var(--line);}
+  .dash-head .kbd span:first-child{background:var(--accent)}
+
+  .dash-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:14px}
+  .panel{background:var(--bg-2);border:1px solid var(--line-dim);padding:14px;position:relative}
+  .panel-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .panel-h .t{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:var(--fg-mute)}
+  .panel-h .t b{color:var(--accent);font-weight:600}
+  .panel-h .live{font-family:'JetBrains Mono';font-size:9px;color:var(--good);display:flex;align-items:center;gap:6px}
+
+  /* player card */
+  .player-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line-dim)}
+  .player-row:last-child{border-bottom:0}
+  .avatar{
+    width:34px;height:34px;background:var(--bg-3);border:1px solid var(--line);
+    display:grid;place-items:center;font-family:'JetBrains Mono';font-weight:700;font-size:12px;color:var(--fg-dim);
+    clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%);
+  }
+  .avatar.a1{background:linear-gradient(135deg,oklch(0.35 0.05 30), oklch(0.25 0.03 30));color:var(--accent)}
+  .avatar.a2{background:linear-gradient(135deg,oklch(0.33 0.05 200), oklch(0.22 0.03 200));color:oklch(0.78 0.12 200)}
+  .avatar.a3{background:linear-gradient(135deg,oklch(0.33 0.05 150), oklch(0.22 0.03 150));color:var(--good)}
+  .avatar.a4{background:linear-gradient(135deg,oklch(0.33 0.05 80), oklch(0.22 0.03 80));color:var(--accent-2)}
+  .avatar.empty{border:1px dashed var(--line);background:transparent;color:var(--fg-mute)}
+  .pname{font-size:13px;font-weight:600;color:var(--fg)}
+  .prole{font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:0.12em}
+  .pmeta{margin-left:auto;display:flex;gap:14px;align-items:center}
+  .pmeta .v{font-family:'JetBrains Mono';font-size:11px;color:var(--fg);font-weight:600}
+  .pmeta .v small{color:var(--fg-mute);font-weight:400}
+
+  .rank-bar{height:4px;background:var(--bg-3);position:relative;margin-top:4px}
+  .rank-bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);display:block}
+
+  /* map strategy mini */
+  .map-mock{
+    aspect-ratio: 1 / 0.72;background:
+      linear-gradient(180deg, oklch(0.24 0.014 250), oklch(0.18 0.012 250)),
+      var(--bg-3);
+    position:relative;overflow:hidden;border:1px solid var(--line-dim);
+  }
+  .map-mock .floorplan{
+    position:absolute;inset:14px;
+    background-image:
+      linear-gradient(var(--line-dim) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-dim) 1px, transparent 1px);
+    background-size: 16px 16px; opacity:0.5;
+  }
+  .map-mock svg{position:absolute;inset:0;width:100%;height:100%}
+  .map-tag{position:absolute;font-family:'JetBrains Mono';font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--fg);background:var(--bg);border:1px solid var(--accent);padding:3px 6px;display:flex;align-items:center;gap:6px}
+  .map-tag .n{color:var(--accent);font-weight:700}
+  .map-tag.t1{top:22%;left:18%}
+  .map-tag.t2{top:58%;left:58%}
+  .map-tag.t3{top:38%;left:72%;border-color:var(--accent-2)}
+  .map-tag.t3 .n{color:var(--accent-2)}
+
+  .legend{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap}
+  .legend span{font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;display:inline-block}
+  .legend .atk{background:var(--accent)}
+  .legend .def{background:var(--accent-2)}
+  .legend .cal{background:var(--fg-dim)}
+
+  /* coach note */
+  .coach{
+    margin-top:14px;border:1px solid var(--line-dim);background:
+      linear-gradient(90deg, oklch(0.705 0.205 38 / 0.08), transparent 40%),
+      var(--bg-2);
+    padding:12px 14px;display:flex;gap:12px;align-items:flex-start;
+  }
+  .coach .bang{
+    width:22px;height:22px;flex:none;background:var(--accent);color:#0c0c10;display:grid;place-items:center;
+    font-family:'JetBrains Mono';font-weight:700;font-size:12px;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  }
+  .coach .txt{font-size:12px;line-height:1.55;color:var(--fg-dim)}
+  .coach .txt b{color:var(--fg)}
+  .coach .lbl{font-family:'JetBrains Mono';font-size:9px;text-transform:uppercase;letter-spacing:0.18em;color:var(--accent);margin-bottom:3px;display:block}
+
+  @media (max-width:640px){
+    .dash-grid{grid-template-columns:1fr}
+    .hero{padding:48px 0 64px}
+    .hero-stats{grid-template-columns:repeat(3,1fr);gap:8px}
+    .hero-stat .k{font-size:22px}
+  }
+
+  /* ---------- section base ---------- */
+  section{position:relative}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:56px;flex-wrap:wrap}
+  .sec-head h2{
+    font-family:'Space Grotesk';font-weight:700;font-size:clamp(32px,4.2vw,52px);line-height:1;letter-spacing:-0.03em;margin:12px 0 0;max-width:720px;
+  }
+  .sec-head h2 em{font-style:normal;color:var(--accent)}
+  .sec-head .right{max-width:380px;font-size:14px;color:var(--fg-dim);line-height:1.55}
+  .sec-num{font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:0.2em;color:var(--fg-mute);display:flex;align-items:center;gap:10px}
+  .sec-num i{width:24px;height:1px;background:var(--accent);display:inline-block}
+
+  /* ---------- how it works ---------- */
+  .how{padding:112px 0;border-bottom:1px solid var(--line-dim)}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .step{
+    padding:36px 28px 36px;border-right:1px solid var(--line);position:relative;min-height:360px;
+    display:flex;flex-direction:column;gap:16px;transition:background .2s;
+  }
+  .step:last-child{border-right:0}
+  .step:hover{background:oklch(0.19 0.012 250)}
+  .step:hover .step-num{color:var(--accent)}
+  .step-num{
+    font-family:'JetBrains Mono';font-weight:700;font-size:44px;letter-spacing:-0.02em;color:var(--fg-mute);line-height:1;
+    transition:color .2s;
+  }
+  .step-num small{font-size:14px;color:var(--fg-mute);margin-left:8px;vertical-align:top;font-weight:500}
+  .step h3{font-family:'Space Grotesk';font-weight:600;font-size:22px;letter-spacing:-0.015em;margin:0;line-height:1.15}
+  .step p{font-size:14px;line-height:1.6;color:var(--fg-dim);margin:0}
+  .step-tag{margin-top:auto;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:var(--fg-mute)}
+  .step-tag i{height:1px;flex:1;background:var(--line)}
+
+  /* step visuals */
+  .step-viz{height:90px;border:1px solid var(--line-dim);background:var(--bg-2);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px}
+
+  /* viz 1: upload */
+  .viz-upload{display:flex;flex-direction:column;gap:4px;width:100%;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);letter-spacing:0.12em}
+  .viz-upload .bars{display:flex;gap:3px;align-items:flex-end;height:36px}
+  .viz-upload .bars i{width:6px;background:var(--line);display:block}
+  .viz-upload .bars i:nth-child(1){height:40%;background:var(--accent)}
+  .viz-upload .bars i:nth-child(2){height:70%;background:var(--accent)}
+  .viz-upload .bars i:nth-child(3){height:55%;background:var(--accent)}
+  .viz-upload .bars i:nth-child(4){height:90%;background:var(--accent)}
+  .viz-upload .bars i:nth-child(5){height:30%;background:var(--line)}
+  .viz-upload .bars i:nth-child(6){height:65%;background:var(--line)}
+  .viz-upload .bars i:nth-child(7){height:45%;background:var(--line)}
+  .viz-upload .label{text-transform:uppercase}
+
+  /* viz 2: coach */
+  .viz-coach{width:100%;height:100%;display:flex;flex-direction:column;gap:6px;justify-content:center}
+  .viz-coach .line{height:4px;background:var(--line);position:relative}
+  .viz-coach .line i{position:absolute;inset:0 auto 0 0;background:var(--accent-2)}
+  .viz-coach .line:nth-child(1) i{width:82%}
+  .viz-coach .line:nth-child(2) i{width:54%;background:var(--accent)}
+  .viz-coach .line:nth-child(3) i{width:71%;background:var(--accent)}
+  .viz-coach .line:nth-child(4) i{width:38%}
+
+  /* viz 3: squad */
+  .viz-squad{display:flex;gap:6px;align-items:center;justify-content:center}
+  .viz-squad .slot{
+    width:32px;height:36px;border:1px solid var(--line);background:var(--bg-3);
+    clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%);
+    display:grid;place-items:center;font-family:'JetBrains Mono';font-size:12px;font-weight:700;
+  }
+  .viz-squad .slot.f{background:linear-gradient(135deg,oklch(0.35 0.05 30), oklch(0.22 0.03 30));color:var(--accent);border-color:var(--accent)}
+  .viz-squad .slot.e{color:var(--fg-mute);border-style:dashed}
+
+  /* viz 4: strategy */
+  .viz-strat{width:100%;height:100%;position:relative;background-image:linear-gradient(var(--line-dim) 1px, transparent 1px),linear-gradient(90deg, var(--line-dim) 1px, transparent 1px);background-size:12px 12px;overflow:hidden}
+  .viz-strat svg{position:absolute;inset:0;width:100%;height:100%}
+  .viz-strat .pin{position:absolute;width:12px;height:12px;background:var(--accent);transform:translate(-50%,-50%);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);box-shadow:0 0 12px var(--accent)}
+  .viz-strat .pin.a{top:30%;left:25%}
+  .viz-strat .pin.b{top:60%;left:55%;background:var(--accent-2);box-shadow:0 0 12px var(--accent-2)}
+  .viz-strat .pin.c{top:45%;left:80%;background:var(--fg);box-shadow:0 0 12px var(--fg)}
+
+  @media (max-width:980px){ .steps{grid-template-columns:repeat(2,1fr)} .step:nth-child(2){border-right:0} .step:nth-child(1),.step:nth-child(2){border-bottom:1px solid var(--line)} }
+  @media (max-width:560px){ .steps{grid-template-columns:1fr} .step{border-right:0;border-bottom:1px solid var(--line);min-height:auto} .step:last-child{border-bottom:0} }
+
+  /* ---------- feature strip ---------- */
+  .feat{padding:112px 0;border-bottom:1px solid var(--line-dim);position:relative}
+  .feat-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:center}
+  @media (max-width:960px){ .feat-grid{grid-template-columns:1fr;gap:40px} }
+
+  .feat-list{display:grid;gap:20px}
+  .feat-item{display:grid;grid-template-columns:42px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid var(--line-dim)}
+  .feat-item:last-child{border-bottom:0}
+  .feat-icon{
+    width:42px;height:42px;background:var(--bg-2);border:1px solid var(--line);display:grid;place-items:center;
+    font-family:'JetBrains Mono';font-weight:700;color:var(--accent);font-size:14px;
+    clip-path: polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%);
+  }
+  .feat-item h4{font-family:'Space Grotesk';font-weight:600;font-size:18px;letter-spacing:-0.01em;margin:0 0 6px}
+  .feat-item p{font-size:14px;line-height:1.55;color:var(--fg-dim);margin:0}
+
+  /* strategy preview card */
+  .strat-card{background:var(--panel);border:1px solid var(--line);padding:20px;position:relative}
+  .strat-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--line-dim);margin-bottom:16px}
+  .strat-head .map{display:flex;align-items:center;gap:12px}
+  .strat-head .map-ico{width:28px;height:28px;background:var(--bg-3);border:1px solid var(--line);position:relative}
+  .strat-head .map-ico::before,.strat-head .map-ico::after{content:"";position:absolute;background:var(--accent)}
+  .strat-head .map-ico::before{left:4px;right:4px;top:10px;height:1px}
+  .strat-head .map-ico::after{left:4px;right:12px;top:16px;height:1px}
+  .strat-head .mname{font-family:'Space Grotesk';font-weight:600;font-size:15px}
+  .strat-head .mname small{display:block;font-family:'JetBrains Mono';font-size:9px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:0.2em;font-weight:500;margin-top:2px}
+  .strat-head .side{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:var(--fg-dim)}
+  .strat-head .side b{color:var(--accent);font-weight:600}
+
+  .ops-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+  .op{border:1px solid var(--line-dim);background:var(--bg-2);padding:10px 8px;text-align:center}
+  .op .op-id{font-family:'JetBrains Mono';font-size:9px;color:var(--fg-mute);letter-spacing:0.18em}
+  .op .op-name{font-family:'Space Grotesk';font-weight:600;font-size:12px;margin-top:4px;letter-spacing:0.02em}
+  .op .op-role{font-family:'JetBrains Mono';font-size:8px;color:var(--accent);text-transform:uppercase;letter-spacing:0.16em;margin-top:3px}
+  .op.primary{border-color:var(--accent);background:linear-gradient(180deg, oklch(0.705 0.205 38 / 0.1), transparent)}
+
+  .plan-block{border-top:1px dashed var(--line-dim);padding-top:14px;margin-top:6px}
+  .plan-block .plan-h{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:var(--fg-mute);margin-bottom:10px;display:flex;gap:10px;align-items:center}
+  .plan-block .plan-h b{color:var(--accent);font-weight:700}
+  .plan-steps{display:grid;gap:8px}
+  .plan-step{display:grid;grid-template-columns:20px 1fr auto;gap:10px;align-items:center;font-size:12px;color:var(--fg-dim);line-height:1.4}
+  .plan-step .n{font-family:'JetBrains Mono';font-size:10px;color:var(--accent);font-weight:700}
+  .plan-step .t{color:var(--fg)}
+  .plan-step .p{font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute)}
+
+  /* ---------- social proof ---------- */
+  .proof{padding:96px 0;border-bottom:1px solid var(--line-dim);position:relative}
+  .proof-head{text-align:center;margin-bottom:48px}
+  .proof-head .tac{margin-bottom:18px}
+  .proof-head h2{font-family:'Space Grotesk';font-weight:700;font-size:clamp(26px,3.2vw,40px);letter-spacing:-0.025em;margin:0;line-height:1.1}
+  .proof-head h2 em{font-style:normal;color:var(--accent)}
+
+  .logos{display:grid;grid-template-columns:repeat(6,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:64px}
+  .logo{
+    height:84px;display:grid;place-items:center;border-right:1px solid var(--line-dim);
+    font-family:'Space Grotesk';font-weight:600;font-size:14px;letter-spacing:0.04em;color:var(--fg-mute);
+    transition:color .15s;
+  }
+  .logo:last-child{border-right:0}
+  .logo:hover{color:var(--fg)}
+  .logo .brk{color:var(--accent);font-family:'JetBrains Mono';font-weight:400}
+  @media (max-width:900px){ .logos{grid-template-columns:repeat(3,1fr)} .logo:nth-child(3){border-right:0} .logo:nth-child(1),.logo:nth-child(2),.logo:nth-child(3){border-bottom:1px solid var(--line-dim)} }
+
+  .quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line)}
+  .quote{padding:28px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px;min-height:240px}
+  .quote:last-child{border-right:0}
+  .quote .mark{font-family:'Space Grotesk';color:var(--accent);font-size:32px;line-height:1;font-weight:700}
+  .quote blockquote{margin:0;font-size:15px;line-height:1.5;color:var(--fg);font-family:'Space Grotesk';font-weight:500;letter-spacing:-0.005em}
+  .quote .who{margin-top:auto;display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:center;padding-top:18px;border-top:1px dashed var(--line-dim)}
+  .quote .who .av{width:36px;height:36px;background:var(--bg-2);border:1px solid var(--line);display:grid;place-items:center;font-family:'JetBrains Mono';font-weight:700;font-size:12px;clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%)}
+  .quote .who .av.r{color:var(--accent)}
+  .quote .who .av.a{color:var(--accent-2)}
+  .quote .who .av.g{color:var(--good)}
+  .quote .who .nm{font-size:13px;font-weight:600}
+  .quote .who .rk{font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:0.14em;margin-top:2px}
+  @media (max-width:860px){ .quotes{grid-template-columns:1fr} .quote{border-right:0;border-bottom:1px solid var(--line)} .quote:last-child{border-bottom:0} }
+
+  /* ---------- stats strip ---------- */
+  .stats-strip{padding:48px 0;border-bottom:1px solid var(--line-dim);background:
+    linear-gradient(90deg, oklch(0.705 0.205 38 / 0.04), transparent 40%, transparent 60%, oklch(0.705 0.205 38 / 0.04));
+  }
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}
+  .big-stat .n{font-family:'Space Grotesk';font-weight:700;font-size:44px;letter-spacing:-0.03em;line-height:1}
+  .big-stat .n em{font-style:normal;color:var(--accent)}
+  .big-stat .l{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:var(--fg-mute);margin-top:8px}
+  @media (max-width:720px){ .stats-grid{grid-template-columns:repeat(2,1fr);gap:24px} .big-stat .n{font-size:32px} }
+
+  /* ---------- CTA band ---------- */
+  .cta-band{padding:96px 0;position:relative;overflow:hidden}
+  .cta-band::before{
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:0.35;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, black, transparent 80%);
+  }
+  .cta-inner{text-align:center;position:relative;z-index:1;max-width:720px;margin:0 auto;padding:0 24px}
+  .cta-inner h2{font-family:'Space Grotesk';font-weight:700;font-size:clamp(36px,5vw,64px);letter-spacing:-0.03em;line-height:1;margin:16px 0 20px}
+  .cta-inner h2 em{font-style:normal;color:var(--accent)}
+  .cta-inner p{font-size:16px;color:var(--fg-dim);line-height:1.55;margin:0 auto 32px;max-width:480px}
+  .cta-inner .btn{height:52px;padding:0 26px;font-size:13px}
+
+  /* ---------- footer ---------- */
+  footer{padding:64px 0 40px;border-top:1px solid var(--line-dim)}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
+  @media (max-width:820px){ .foot-grid{grid-template-columns:1fr 1fr;gap:32px} }
+  @media (max-width:520px){ .foot-grid{grid-template-columns:1fr} }
+  .foot-brand .brand-name{font-size:18px;margin-top:10px;display:block}
+  .foot-brand p{font-size:13px;color:var(--fg-dim);line-height:1.55;margin-top:14px;max-width:320px}
+  .foot-col h5{font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:var(--fg-mute);margin:0 0 18px;font-weight:600}
+  .foot-col ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+  .foot-col a{font-size:13px;color:var(--fg-dim);transition:color .15s}
+  .foot-col a:hover{color:var(--accent)}
+
+  .foot-bot{display:flex;align-items:center;justify-content:space-between;padding-top:24px;border-top:1px solid var(--line-dim);flex-wrap:wrap;gap:16px}
+  .foot-bot .left{font-family:'JetBrains Mono';font-size:11px;color:var(--fg-mute);letter-spacing:0.04em}
+  .foot-bot .left b{color:var(--fg-dim);font-weight:500}
+  .foot-bot .right{font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);text-transform:uppercase;letter-spacing:0.18em;display:flex;gap:18px;align-items:center}
+  .foot-bot .right .dot{background:var(--good)}
+
+  /* disclaimer */
+  .disclaimer{
+    max-width:1320px;margin:24px auto 0;padding:14px 32px;border:1px dashed var(--line-dim);
+    font-family:'JetBrains Mono';font-size:10px;color:var(--fg-mute);line-height:1.5;letter-spacing:0.02em;
+  }
+  .disclaimer b{color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.18em;margin-right:8px}
+
+  /* small-screen tweaks */
+  @media (max-width:640px){
+    .hero{padding:40px 0 56px}
+    .how,.feat,.proof{padding:72px 0}
+    .cta-band{padding:72px 0}
+    .sec-head{margin-bottom:40px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================ NAV ================ -->
+<div class="navwrap">
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="#">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-name">R6 <span>/</span> SQUAD ANALYZER</div>
+      </a>
+      <div class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#proof">Squads</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#changelog">Changelog</a>
+      </div>
+      <div class="nav-cta">
+        <a href="#signin" class="btn" style="display:none">Sign in</a>
+        <a href="Get Started.html" class="btn primary">
+          <span>Get Started</span>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<!-- ================ HERO ================ -->
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <div class="status-row">
+        <div class="pill"><span class="dot"></span> <span>Season Y11 · OPERATION <span class="acc">COLLISION POINT</span></span></div>
+        <div class="pill mono">v2.4 · Ranked + Standard</div>
+      </div>
+
+      <h1 class="hero-title">
+        Win the round <span class="slash">/</span><br/>
+        <span class="outline">before</span> it starts.
+      </h1>
+
+      <p class="hero-sub">
+        Upload your Tracker Network screenshots and get a brutally honest playstyle breakdown. Build a 5-stack, lock a map, and we'll hand you <strong>operator picks, attack execs, defense setups, and callouts</strong> — tuned to how your squad actually plays.
+      </p>
+
+      <div class="hero-ctas">
+        <a href="Get Started.html" class="btn primary">
+          <span>Run Squad Analysis</span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="#demo" class="btn">
+          <span>See Sample Report</span>
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="k">14<span class="u">s</span></div>
+          <div class="l">Avg stat extract</div>
+        </div>
+        <div class="hero-stat">
+          <div class="k">22<span class="u">/23</span></div>
+          <div class="l">Maps supported</div>
+        </div>
+        <div class="hero-stat">
+          <div class="k">+18<span class="u">%</span></div>
+          <div class="l">Squad win-rate lift</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: dashboard mock -->
+    <div class="dash corners" aria-hidden="true">
+      <span class="c-tl"></span><span class="c-tr"></span><span class="c-bl"></span><span class="c-br"></span>
+      <div class="dash-head">
+        <div class="title">SQUAD // <b>GHOST-07</b> · MAP LOCKED</div>
+        <div class="kbd"><span></span><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="dash-grid">
+        <!-- roster -->
+        <div class="panel">
+          <div class="panel-h">
+            <div class="t">ROSTER · <b>5/5</b></div>
+            <div class="live"><span class="dot"></span> LIVE</div>
+          </div>
+
+          <div class="player-row">
+            <div class="avatar a1">VX</div>
+            <div>
+              <div class="pname">vexel.py</div>
+              <div class="prole">ENTRY · AGGRESSIVE</div>
+              <div class="rank-bar" style="width:80px;margin-top:6px"><i style="width:82%"></i></div>
+            </div>
+            <div class="pmeta"><div class="v">1.42<small> K/D</small></div><div class="v">58<small>%WR</small></div></div>
+          </div>
+          <div class="player-row">
+            <div class="avatar a2">KR</div>
+            <div>
+              <div class="pname">kraitzen</div>
+              <div class="prole">SUPPORT · FLEX</div>
+              <div class="rank-bar" style="width:80px;margin-top:6px"><i style="width:64%;background:oklch(0.78 0.12 200)"></i></div>
+            </div>
+            <div class="pmeta"><div class="v">1.18<small> K/D</small></div><div class="v">54<small>%WR</small></div></div>
+          </div>
+          <div class="player-row">
+            <div class="avatar a3">MS</div>
+            <div>
+              <div class="pname">m0rsecode</div>
+              <div class="prole">INTEL · ANCHOR</div>
+              <div class="rank-bar" style="width:80px;margin-top:6px"><i style="width:72%;background:var(--good)"></i></div>
+            </div>
+            <div class="pmeta"><div class="v">1.09<small> K/D</small></div><div class="v">61<small>%WR</small></div></div>
+          </div>
+          <div class="player-row">
+            <div class="avatar a4">HX</div>
+            <div>
+              <div class="pname">hexboy.exe</div>
+              <div class="prole">ROAMER · LURK</div>
+              <div class="rank-bar" style="width:80px;margin-top:6px"><i style="width:58%;background:var(--accent-2)"></i></div>
+            </div>
+            <div class="pmeta"><div class="v">1.31<small> K/D</small></div><div class="v">51<small>%WR</small></div></div>
+          </div>
+          <div class="player-row">
+            <div class="avatar a1">QN</div>
+            <div>
+              <div class="pname">quinoa.shot</div>
+              <div class="prole">HARD BREACH · OBJ</div>
+              <div class="rank-bar" style="width:80px;margin-top:6px"><i style="width:76%"></i></div>
+            </div>
+            <div class="pmeta"><div class="v">1.05<small> K/D</small></div><div class="v">59<small>%WR</small></div></div>
+          </div>
+        </div>
+
+        <!-- map + coach -->
+        <div>
+          <div class="panel" style="padding:12px">
+            <div class="panel-h">
+              <div class="t">MAP · <b>COASTLINE</b></div>
+              <div class="live mono">ATK · B-SITE</div>
+            </div>
+            <div class="map-mock">
+              <div class="floorplan"></div>
+              <svg viewBox="0 0 100 72" preserveAspectRatio="none">
+                <path d="M 10 50 Q 30 30 55 38 T 90 34" fill="none" stroke="oklch(0.705 0.205 38)" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <path d="M 20 62 L 40 56 L 60 58" fill="none" stroke="oklch(0.78 0.165 75)" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <circle cx="55" cy="38" r="2" fill="oklch(0.705 0.205 38)"/>
+                <circle cx="40" cy="56" r="1.6" fill="oklch(0.78 0.165 75)"/>
+              </svg>
+              <div class="map-tag t1"><span class="n">A1</span> BREACH</div>
+              <div class="map-tag t2"><span class="n">A3</span> FLANK</div>
+              <div class="map-tag t3"><span class="n">D2</span> ANCHOR</div>
+            </div>
+            <div class="legend">
+              <span><i class="atk"></i> ATK ROUTE</span>
+              <span><i class="def"></i> DEF SETUP</span>
+              <span><i class="cal"></i> CALLOUT</span>
+            </div>
+          </div>
+
+          <div class="coach">
+            <div class="bang">!</div>
+            <div class="txt">
+              <span class="lbl">COACH · HEXBOY.EXE</span>
+              You over-peek <b>46% of site plants</b>. On Coastline B, hold <b>Sunrise → Hookah ceiling</b> and trade instead of pushing. Est. round-win swing: <b>+11%</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- disclaimer strip -->
+<div class="disclaimer">
+  <b>NOTICE</b>
+  R6 Squad Analyzer is an independent fan-made coaching tool. Not affiliated with, endorsed by, or sponsored by Ubisoft Entertainment. All game names, map names, and operator references are used under nominative fair use for compatibility purposes.
+</div>
+
+<!-- ================ HOW IT WORKS ================ -->
+<section class="how" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num"><i></i> SECTION 01 / WORKFLOW</div>
+        <h2>Four steps <em>from chaos</em><br/>to a winning gameplan.</h2>
+      </div>
+      <div class="right">
+        No API keys. No game integration. Just drop your stats page, invite your squad, and pick a map. We handle the OCR, the breakdown, and the coaching in under a minute.
+      </div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">01<small>/04</small></div>
+        <h3>Drop your stats screenshot</h3>
+        <p>Drag in your Tracker Network page — overall, ranked, or operator tab. Our extractor reads K/D, W/L, playtime, top operators, and headshot % in seconds.</p>
+        <div class="step-viz">
+          <div class="viz-upload">
+            <div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="label">EXTRACTING · 57%</div>
+          </div>
+        </div>
+        <div class="step-tag">INPUT<i></i>OCR</div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">02<small>/04</small></div>
+        <h3>Get a playstyle read</h3>
+        <p>An AI coach classifies your archetype — Entry, Anchor, Roamer, Intel, Support — flags your weak spots, and recommends three operators you're currently underutilizing.</p>
+        <div class="step-viz">
+          <div class="viz-coach">
+            <div class="line"><i></i></div>
+            <div class="line"><i></i></div>
+            <div class="line"><i></i></div>
+            <div class="line"><i></i></div>
+          </div>
+        </div>
+        <div class="step-tag">ANALYSIS<i></i>COACH</div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">03<small>/04</small></div>
+        <h3>Build your 5-stack</h3>
+        <p>Send your squad link. Once all five profiles lock in, we balance roles, flag redundancies, and surface compatibility warnings — no two-Thatcher stacks on your watch.</p>
+        <div class="step-viz">
+          <div class="viz-squad">
+            <div class="slot f">1</div>
+            <div class="slot f">2</div>
+            <div class="slot f">3</div>
+            <div class="slot f">4</div>
+            <div class="slot e">5</div>
+          </div>
+        </div>
+        <div class="step-tag">SQUAD<i></i>SYNC</div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">04<small>/04</small></div>
+        <h3>Lock a map, read the plan</h3>
+        <p>Pick any map from the competitive pool. You get per-player operator assignments, attack execs with timings, defense setups with rotates, and shot-ready callouts.</p>
+        <div class="step-viz">
+          <div class="viz-strat">
+            <svg viewBox="0 0 100 72" preserveAspectRatio="none">
+              <path d="M 15 25 Q 35 35 50 45 T 85 50" fill="none" stroke="oklch(0.705 0.205 38)" stroke-width="0.7" stroke-dasharray="1.5 1"/>
+            </svg>
+            <div class="pin a"></div>
+            <div class="pin b"></div>
+            <div class="pin c"></div>
+          </div>
+        </div>
+        <div class="step-tag">OUTPUT<i></i>STRATEGY</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ================ FEATURE STRIP ================ -->
+<section class="feat" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num"><i></i> SECTION 02 / CAPABILITIES</div>
+        <h2>What the <em>coach</em> actually gives you.</h2>
+      </div>
+      <div class="right">
+        Every report is generated per-squad, per-map. The AI doesn't just tell you to "communicate more" — it hands you the exec, the timing, and the line.
+      </div>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat-list">
+        <div class="feat-item">
+          <div class="feat-icon">01</div>
+          <div>
+            <h4>Per-player operator picks</h4>
+            <p>Matched to your playstyle, your squad's role gaps, and the map's meta — with primary, backup, and "if banned" alternates.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">02</div>
+          <div>
+            <h4>Attack execs with timings</h4>
+            <p>T-minus breach windows, utility order, flank responsibilities. A plan you can actually call out in prep phase.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">03</div>
+          <div>
+            <h4>Defense setups &amp; rotates</h4>
+            <p>Anchor assignments, roam paths, reinforcement patterns, and the two rotates to pre-call when intel comes in.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">04</div>
+          <div>
+            <h4>Shareable callouts card</h4>
+            <p>A one-page reference your squad pulls up on a second monitor — key angles, pre-fires, and common peek windows.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- strat preview -->
+      <div class="strat-card corners">
+        <span class="c-tl"></span><span class="c-tr"></span><span class="c-bl"></span><span class="c-br"></span>
+
+        <div class="strat-head">
+          <div class="map">
+            <div class="map-ico"></div>
+            <div class="mname">CLUBHOUSE<small>GAMEPLAN · GHOST-07</small></div>
+          </div>
+          <div class="side"><b>ATK</b> · CHURCH / ARSENAL</div>
+        </div>
+
+        <div class="ops-grid">
+          <div class="op primary">
+            <div class="op-id">P1</div>
+            <div class="op-name">ZOFIA</div>
+            <div class="op-role">ENTRY</div>
+          </div>
+          <div class="op">
+            <div class="op-id">P2</div>
+            <div class="op-name">THATCHER</div>
+            <div class="op-role">SUPPORT</div>
+          </div>
+          <div class="op">
+            <div class="op-id">P3</div>
+            <div class="op-name">IANA</div>
+            <div class="op-role">INTEL</div>
+          </div>
+          <div class="op">
+            <div class="op-id">P4</div>
+            <div class="op-name">ASH</div>
+            <div class="op-role">LURK</div>
+          </div>
+          <div class="op">
+            <div class="op-id">P5</div>
+            <div class="op-name">HIBANA</div>
+            <div class="op-role">HARD BREACH</div>
+          </div>
+        </div>
+
+        <div class="plan-block">
+          <div class="plan-h">ATTACK EXEC · <b>CHURCH</b></div>
+          <div class="plan-steps">
+            <div class="plan-step"><span class="n">01</span><span class="t">Iana scouts Gator from Tree — confirm anchor position</span><span class="p">T-0:40</span></div>
+            <div class="plan-step"><span class="n">02</span><span class="t">Thatcher EMPs Church hatch + Arsenal wall</span><span class="p">T-0:28</span></div>
+            <div class="plan-step"><span class="n">03</span><span class="t">Hibana opens vertical, Zofia concusses through</span><span class="p">T-0:14</span></div>
+            <div class="plan-step"><span class="n">04</span><span class="t">Ash entries Piano, Zofia trades — Iana holds hall</span><span class="p">T-0:06</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================ SOCIAL PROOF ================ -->
+<section class="proof" id="proof">
+  <div class="wrap">
+    <div class="proof-head">
+      <div class="tac">// TRUSTED BY COMPETITIVE STACKS</div>
+      <h2>Used by <em>4,200+ ranked squads</em> across 3 regions.</h2>
+    </div>
+
+    <div class="logos">
+      <div class="logo"><span class="brk">[</span>&nbsp;NIGHTHAWK&nbsp;<span class="brk">]</span></div>
+      <div class="logo">BLKHND.GG</div>
+      <div class="logo"><span class="brk">&lt;/</span>FRAGLINE<span class="brk">&gt;</span></div>
+      <div class="logo">VOLTRON-5</div>
+      <div class="logo">MERIDIAN&nbsp;SIX</div>
+      <div class="logo"><span class="brk">★</span>&nbsp;AXIS.KR&nbsp;<span class="brk">★</span></div>
+    </div>
+
+    <div class="quotes">
+      <div class="quote">
+        <div class="mark">“</div>
+        <blockquote>It called out that my entry fragger over-peeks on plants before he even said it in VC. Felt personal. We clean up a lot more rounds now.</blockquote>
+        <div class="who">
+          <div class="av r">DR</div>
+          <div>
+            <div class="nm">drift.txt</div>
+            <div class="rk">DIAMOND III · IGL · NIGHTHAWK</div>
+          </div>
+        </div>
+      </div>
+      <div class="quote">
+        <div class="mark">“</div>
+        <blockquote>The per-map operator assignments stopped our team's biggest fight: who plays Thatcher. We just run the sheet now.</blockquote>
+        <div class="who">
+          <div class="av a">LM</div>
+          <div>
+            <div class="nm">lumen.keys</div>
+            <div class="rk">EMERALD I · SUPPORT · MERIDIAN SIX</div>
+          </div>
+        </div>
+      </div>
+      <div class="quote">
+        <div class="mark">“</div>
+        <blockquote>Finally a coaching tool that reads my actual stats instead of telling me generic "work on aim" slop. The callouts page is clutch.</blockquote>
+        <div class="who">
+          <div class="av g">SV</div>
+          <div>
+            <div class="nm">sov.rin</div>
+            <div class="rk">CHAMPION · ROAMER · AXIS.KR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================ STATS STRIP ================ -->
+<section class="stats-strip">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="big-stat">
+        <div class="n">4,217<em>+</em></div>
+        <div class="l">Squads deployed</div>
+      </div>
+      <div class="big-stat">
+        <div class="n">38,104</div>
+        <div class="l">Reports generated</div>
+      </div>
+      <div class="big-stat">
+        <div class="n">+18<em>%</em></div>
+        <div class="l">Avg win-rate lift</div>
+      </div>
+      <div class="big-stat">
+        <div class="n">22<em>/23</em></div>
+        <div class="l">Ranked maps supported</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================ CTA ================ -->
+<section class="cta-band">
+  <div class="cta-inner">
+    <div class="tac">// READY WHEN YOU ARE</div>
+    <h2>Stop theorycrafting.<br/>Start <em>executing.</em></h2>
+    <p>Free for your first squad and your first three map reports. Takes about ninety seconds from sign-in to gameplan.</p>
+    <a href="Get Started.html" class="btn primary">
+      <span>Get Started — It's Free</span>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<!-- ================ FOOTER ================ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="brand" style="align-items:flex-start">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-name">R6 <span>/</span> SQUAD ANALYZER</div>
+        </div>
+        <p>An independent coaching layer for competitive Rainbow Six squads. Built by players who were tired of losing post-plants.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Product</h5>
+        <ul>
+          <li><a href="#">How it works</a></li>
+          <li><a href="#">Features</a></li>
+          <li><a href="#">Map coverage</a></li>
+          <li><a href="#">Pricing</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h5>Squad</h5>
+        <ul>
+          <li><a href="#">Discord</a></li>
+          <li><a href="#">X / Twitter</a></li>
+          <li><a href="#">Reddit hub</a></li>
+          <li><a href="#">Affiliate program</a></li>
+          <li><a href="#">Creator kit</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h5>Legal</h5>
+        <ul>
+          <li><a href="#">Terms of service</a></li>
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Fair-use notice</a></li>
+          <li><a href="#">Status page</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-bot">
+      <div class="left">© 2026 <b>R6 SQUAD ANALYZER</b>  //  Not affiliated with Ubisoft Entertainment</div>
+      <div class="right">
+        <span><span class="dot" style="display:inline-block;width:6px;height:6px;border-radius:50%"></span> ALL SYSTEMS NOMINAL</span>
+        <span>BUILD 2026.04.19-R</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

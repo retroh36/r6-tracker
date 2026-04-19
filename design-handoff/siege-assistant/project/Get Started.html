@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>R6 Squad Analyzer — Get Started</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app/styles.css">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  /* tweaks panel */
+  .tweaks{position:fixed;right:20px;bottom:20px;z-index:100;width:280px;background:var(--panel);border:1px solid var(--accent);padding:16px;display:none}
+  .tweaks.on{display:block}
+  .tweaks h5{margin:0 0 12px;font-family:'JetBrains Mono';font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:var(--accent)}
+  .tweaks .row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .tweaks .row button{padding:6px 10px;font-family:'JetBrains Mono';font-size:9px;text-transform:uppercase;letter-spacing:0.14em;border:1px solid var(--line-dim);color:var(--fg-dim)}
+  .tweaks .row button.on{background:var(--accent);color:#0c0c10;border-color:var(--accent)}
+  .tweaks label{font-family:'JetBrains Mono';font-size:9px;color:var(--fg-mute);letter-spacing:0.14em;display:block;margin-bottom:6px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="app/data.js"></script>
+<script type="text/babel" src="app/components.jsx"></script>
+<script type="text/babel" src="app/screens/signin.jsx"></script>
+<script type="text/babel" src="app/screens/upload.jsx"></script>
+<script type="text/babel" src="app/screens/profile.jsx"></script>
+<script type="text/babel" src="app/screens/dashboard.jsx"></script>
+<script type="text/babel" src="app/screens/squad.jsx"></script>
+<script type="text/babel" src="app/screens/strategy.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAKS_DEFAULT = /*EDITMODE-BEGIN*/{
+  "startScreen": "signin",
+  "accentHue": 38,
+  "showDisclaimer": true
+}/*EDITMODE-END*/;
+
+function App() {
+  // persistence
+  const loaded = (() => {
+    try { return JSON.parse(localStorage.getItem('r6sa_state') || '{}'); } catch(e){ return {}; }
+  })();
+
+  const [route, setRoute] = useState(loaded.route || TWEAKS_DEFAULT.startScreen);
+  const [justUploaded, setJustUploaded] = useState(false);
+  const [selectedMap, setSelectedMap] = useState(loaded.selectedMap || null);
+  const [tweaks, setTweaks] = useState({...TWEAKS_DEFAULT, ...(loaded.tweaks||{})});
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('r6sa_state', JSON.stringify({ route, tweaks, selectedMap }));
+  }, [route, tweaks, selectedMap]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', `oklch(0.705 0.205 ${tweaks.accentHue})`);
+    document.documentElement.style.setProperty('--accent-h', `oklch(0.750 0.205 ${tweaks.accentHue})`);
+  }, [tweaks.accentHue]);
+
+  // edit mode protocol
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({type:'__edit_mode_available'},'*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const updateTweak = (k,v) => {
+    const edits = { [k]: v };
+    setTweaks(t => ({...t, ...edits}));
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits},'*');
+  };
+
+  const handleSignIn = (isNewUser) => {
+    // onboarding depth = none; go straight to upload
+    setRoute('upload');
+  };
+
+  const handleUploadComplete = () => {
+    setJustUploaded(true);
+    setRoute('profile');
+  };
+
+  const handleRoute = (r) => {
+    if (r === 'profile') setJustUploaded(false);
+    setRoute(r);
+  };
+
+  const user = window.DATA.PLAYER;
+
+  return (
+    <>
+      {route === 'signin'    && <SignInScreen onSignIn={handleSignIn} />}
+      {route === 'upload'    && <UploadScreen onComplete={handleUploadComplete} user={user} onRoute={handleRoute} />}
+      {route === 'profile'   && <ProfileScreen onRoute={handleRoute} user={user} justUploaded={justUploaded} />}
+      {route === 'dashboard' && <DashboardScreen onRoute={handleRoute} user={user} />}
+      {route === 'squad'     && <SquadScreen onRoute={handleRoute} user={user} onGenerateStrategy={(m)=>{setSelectedMap(m);setRoute('strategy');}} />}
+      {route === 'strategy'  && <StrategyScreen onRoute={handleRoute} user={user} map={selectedMap} />}
+
+      {route !== 'signin' && tweaks.showDisclaimer && <Disclaimer />}
+
+      <div className={"tweaks" + (tweaksOpen?' on':'')}>
+        <h5>// TWEAKS</h5>
+        <label>Jump to screen</label>
+        <div className="row">
+          {['signin','upload','profile','dashboard','squad','strategy'].map(r => (
+            <button key={r} className={route===r?'on':''} onClick={()=>setRoute(r)}>{r}</button>
+          ))}
+        </div>
+        <label>Accent hue</label>
+        <div className="row">
+          {[{n:'RED',h:28},{n:'ORANGE',h:38},{n:'AMBER',h:75},{n:'GREEN',h:155},{n:'BLUE',h:240},{n:'PURPLE',h:300}].map(c=>(
+            <button key={c.n} className={tweaks.accentHue===c.h?'on':''} onClick={()=>updateTweak('accentHue',c.h)}>{c.n}</button>
+          ))}
+        </div>
+        <label>Disclaimer</label>
+        <div className="row">
+          <button className={tweaks.showDisclaimer?'on':''} onClick={()=>updateTweak('showDisclaimer',!tweaks.showDisclaimer)}>
+            {tweaks.showDisclaimer?'SHOWN':'HIDDEN'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
