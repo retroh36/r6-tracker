@@ -1,83 +1,191 @@
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
+import path from 'path';
 
 const client = new Anthropic();
+const MODEL = 'claude-opus-4-5';
 
-// ---------- STEP 1: Extract stats from the screenshot ----------
+// ---------- Helper: Load all screenshots from a folder as image blocks ----------
 
-console.log('Reading screenshot...');
-const imageData = fs.readFileSync('test-stats.png').toString('base64');
+function loadScreenshots(folderPath) {
+  const files = fs.readdirSync(folderPath)
+    .filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'));
+  
+  return files.map(file => {
+    const data = fs.readFileSync(path.join(folderPath, file)).toString('base64');
+    const ext = path.extname(file).toLowerCase();
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: ext === '.png' ? 'image/png' : 'image/jpeg',
+        data: data,
+      },
+    };
+  });
+}
 
-console.log('Extracting stats with Claude vision...');
-const extraction = await client.messages.create({
-  model: 'claude-opus-4-5',
-  max_tokens: 1024,
-  messages: [
-    {
+// ---------- Helper: Extract stats JSON from screenshots ----------
+
+async function extractStats(imageBlocks) {
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 2048,
+    messages: [{
       role: 'user',
       content: [
-        {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/png',
-            data: imageData,
-          },
-        },
+        ...imageBlocks,
         {
           type: 'text',
-          text: 'Extract the Rainbow Six Siege player stats from this Tracker Network screenshot. Return ONLY a JSON object with these fields: username, kd, winRate, headshotPercentage, matchesPlayed, topOperators (array of operator names if visible). Use null for any field not visible. No explanation, just the JSON.',
+          text: `Extract Rainbow Six Siege stats from these Tracker Network screenshots into ONE JSON object:
+- username, kd, winRate, headshotPercentage, matchesPlayed, rank
+- topOperators: array of { name, winRate, kd, role }
+- bestMaps: array of { name, winRate }
+- worstMaps: array of { name, winRate }
+Use null for missing data. Return ONLY the JSON, no code fences.`,
         },
       ],
-    },
-  ],
-});
+    }],
+  });
+  
+  const text = response.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
 
-const rawStatsText = extraction.content[0].text;
-const cleanedStats = rawStatsText.replace(/```json|```/g, '').trim();
-const stats = JSON.parse(cleanedStats);
+// ---------- Helper: Generate individual player coaching ----------
 
-console.log('\nExtracted stats:');
-console.log(stats);
-
-// ---------- STEP 2: Send those stats back to Claude for coaching ----------
-
-console.log('\nAnalyzing playstyle...');
-
-const coaching = await client.messages.create({
-  model: 'claude-opus-4-5',
-  max_tokens: 1500,
-  system: `You are an expert Rainbow Six Siege coach. You have deep knowledge of operator meta, map strategy, pro league tactics, and playstyle analysis. When given a player's stats, you identify their likely playstyle, strengths, weaknesses, and give concrete actionable tips. You are direct, honest, and specific. You never give generic advice like "practice more" — every tip must reference something concrete about their stats or R6 gameplay.`,
-  messages: [
-    {
+async function coachPlayer(stats) {
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1500,
+    system: `You are an expert Rainbow Six Siege coach with deep knowledge of operator meta, map strategy, and pro-league tactics. Every tip must reference specific stats or R6 mechanics — never generic advice.`,
+    messages: [{
       role: 'user',
-      content: `Analyze this Rainbow Six Siege player and return ONLY a JSON object with these fields:
-- playstyleLabel: a short label like "Aggressive Entry Fragger", "Patient Anchor", "Support Roamer", etc.
-- playstyleExplanation: 1-2 sentences explaining why you chose that label
-- strengths: array of 3 specific strengths based on the stats
-- weaknesses: array of 3 specific weaknesses
-- tips: array of 3 concrete, actionable tips tailored to this player
+      content: `Classify this player for a squad-strategy context. Return ONLY JSON:
+- playstyleLabel: short label
+- role: one of ["Entry Fragger", "Support", "Anchor", "Roamer", "Hard Breach", "Intel", "Flex"]
+- strengths: array of 2 short strings
+- weaknesses: array of 2 short strings
 
-Player stats:
-${JSON.stringify(stats, null, 2)}
+Player: ${JSON.stringify(stats, null, 2)}
+Return ONLY the JSON, no code fences.`,
+    }],
+  });
+  
+  const text = response.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
 
-Return only the JSON object. No preamble, no markdown code fences.`,
-    },
-  ],
+// ---------- Helper: Analyze one player end-to-end ----------
+
+async function analyzePlayer(folderPath) {
+  console.log(`  Analyzing ${folderPath}...`);
+  const images = loadScreenshots(folderPath);
+  if (images.length === 0) {
+    console.log(`    No screenshots in ${folderPath}, skipping.`);
+    return null;
+  }
+  const stats = await extractStats(images);
+  const coaching = await coachPlayer(stats);
+  return { stats, coaching };
+}
+
+// ---------- Main: Run squad analysis ----------
+
+const mapName = process.argv[2] || 'Clubhouse';
+console.log(`\nSquad analysis for map: ${mapName}\n`);
+
+const squadDir = 'squads';
+const playerFolders = fs.readdirSync(squadDir)
+  .filter(f => fs.statSync(path.join(squadDir, f)).isDirectory())
+  .sort();
+
+console.log(`Found ${playerFolders.length} player folder(s): ${playerFolders.join(', ')}\n`);
+
+const players = [];
+for (const folder of playerFolders) {
+  const result = await analyzePlayer(path.join(squadDir, folder));
+  if (result) players.push(result);
+}
+
+if (players.length === 0) {
+  console.error('No players analyzed — add screenshots to squads/player1, squads/player2, etc.');
+  process.exit(1);
+}
+
+// ---------- Squad strategy call ----------
+
+console.log('\nGenerating squad strategy...');
+
+const squadSummary = players.map((p, i) => ({
+  player: i + 1,
+  username: p.stats.username,
+  rank: p.stats.rank,
+  playstyle: p.coaching.playstyleLabel,
+  role: p.coaching.role,
+  strengths: p.coaching.strengths,
+  weaknesses: p.coaching.weaknesses,
+  topOperators: p.stats.topOperators,
+  mapPerformance: {
+    best: p.stats.bestMaps,
+    worst: p.stats.worstMaps,
+  },
+}));
+
+const strategy = await client.messages.create({
+  model: MODEL,
+  max_tokens: 3000,
+  system: `You are a Rainbow Six Siege coach building team strategy for a 5-stack (or partial stack). You understand pro-league meta, map-specific site priorities, operator synergies, and how to assign roles based on individual playstyles. Be direct and tactical — real callouts, real setups, real operator picks.`,
+  messages: [{
+    role: 'user',
+    content: `Build a squad strategy for ${mapName}. Use each player's playstyle, role, and operator pool when making assignments.
+
+Squad: ${JSON.stringify(squadSummary, null, 2)}
+
+Return ONLY JSON with:
+- mapOverview: 1-2 sentences about how this map plays and what wins on it
+- attackPlan: object with { sitePriority: "preferred site to attack with reasoning", operatorPicks: array of { player: 1-5, operator: "name", reason: "short reasoning" }, executeStrategy: "2-3 sentences on the actual execute" }
+- defensePlan: object with { sitePriority: array of 2 sites in preferred order, operatorPicks: array of { player: 1-5, operator, reason }, setupStrategy: "2-3 sentences on the defensive setup" }
+- keyCallouts: array of 3-5 specific map callouts or tactical reminders for this squad
+- squadWeaknesses: 1-2 sentences on what this squad composition is vulnerable to
+
+No code fences.`,
+  }],
 });
 
-const rawCoachingText = coaching.content[0].text;
-const cleanedCoaching = rawCoachingText.replace(/```json|```/g, '').trim();
-const analysis = JSON.parse(cleanedCoaching);
+const strategyText = strategy.content[0].text.replace(/```json|```/g, '').trim();
+const plan = JSON.parse(strategyText);
 
-console.log('\n=== COACHING REPORT ===\n');
-console.log(`Player: ${stats.username}`);
-console.log(`Playstyle: ${analysis.playstyleLabel}`);
-console.log(`\n${analysis.playstyleExplanation}`);
-console.log('\nStrengths:');
-analysis.strengths.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
-console.log('\nWeaknesses:');
-analysis.weaknesses.forEach((w, i) => console.log(`  ${i + 1}. ${w}`));
-console.log('\nTips:');
-analysis.tips.forEach((t, i) => console.log(`  ${i + 1}. ${t}`));
-console.log('');
+// ---------- Pretty print ----------
+
+console.log('\n========================================');
+console.log(`  SQUAD STRATEGY — ${mapName.toUpperCase()}`);
+console.log('========================================\n');
+
+console.log('ROSTER:');
+players.forEach((p, i) => {
+  console.log(`  Player ${i + 1}: ${p.stats.username} (${p.stats.rank || 'Unranked'}) — ${p.coaching.role}`);
+});
+
+console.log(`\nMAP OVERVIEW:\n  ${plan.mapOverview}`);
+
+console.log('\n--- ATTACK ---');
+console.log(`Site priority: ${plan.attackPlan.sitePriority}`);
+console.log('Operator picks:');
+plan.attackPlan.operatorPicks.forEach(p => {
+  console.log(`  Player ${p.player} → ${p.operator}: ${p.reason}`);
+});
+console.log(`Execute:\n  ${plan.attackPlan.executeStrategy}`);
+
+console.log('\n--- DEFENSE ---');
+console.log(`Site priority: ${plan.defensePlan.sitePriority.join(' > ')}`);
+console.log('Operator picks:');
+plan.defensePlan.operatorPicks.forEach(p => {
+  console.log(`  Player ${p.player} → ${p.operator}: ${p.reason}`);
+});
+console.log(`Setup:\n  ${plan.defensePlan.setupStrategy}`);
+
+console.log('\nKEY CALLOUTS:');
+plan.keyCallouts.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
+
+console.log(`\nSQUAD WEAKNESSES:\n  ${plan.squadWeaknesses}\n`);
