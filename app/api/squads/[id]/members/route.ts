@@ -62,6 +62,14 @@ export async function POST(
     .select('id, slot, profile_id, profiles(id, ubisoft_username, stats)')
     .single();
 
+  // Invalidate cached squad analysis
+  if (!error) {
+    await supabase
+      .from('squads')
+      .update({ analysis: null, analysis_generated_at: null })
+      .eq('id', squadId);
+  }
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

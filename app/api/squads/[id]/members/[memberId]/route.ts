@@ -34,5 +34,11 @@ export async function DELETE(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Invalidate cached squad analysis
+  await supabase
+    .from('squads')
+    .update({ analysis: null, analysis_generated_at: null })
+    .eq('id', squadId);
+
   return NextResponse.json({ ok: true });
 }
