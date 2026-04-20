@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopNav } from '../components/TopNav';
 import { Pill, StatCell, Corners, Bar, CompareBar } from '../components/ui';
+import { OperatorIcon } from '../components/OperatorIcon';
 import { useAnalysis } from '../context/analysis-context';
 import { PLAYER, COACH_REPORT } from '@/lib/mock-data';
 
@@ -187,7 +188,7 @@ export default function ProfilePage() {
                     <div key={op.name} className="corners" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-dim)', padding: 18, position: 'relative' }}>
                       {i === 0 && <><span className="c-tl"></span><span className="c-tr"></span></>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                        <div className={'av md ' + ['h-r', 'h-b', 'h-a'][i]}>{op.name.slice(0, 2)}</div>
+                        <OperatorIcon name={op.name} size={36} />
                         <div>
                           <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em' }}>{op.name}</div>
                           <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 10, color: 'var(--accent)', letterSpacing: '0.14em', marginTop: 2 }}>{op.role} · PICK #{i + 1}</div>
@@ -212,7 +213,7 @@ export default function ProfilePage() {
                 <div style={{ display: 'grid', gap: 12 }}>
                   {report.underutilized.map((op: any) => (
                     <div key={op.name} style={{ display: 'grid', gridTemplateColumns: '36px 130px 1fr', gap: 16, alignItems: 'center', padding: '10px 0', borderBottom: '1px dashed var(--line-dim)' }}>
-                      <div className="av md h-a" style={{ width: 36, height: 40 }}>{op.name.slice(0, 2)}</div>
+                      <OperatorIcon name={op.name} size={36} />
                       <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 15 }}>{op.name}</div>
                       <div style={{ fontSize: 13, color: 'var(--fg-dim)', lineHeight: 1.5 }}>{op.why}</div>
                     </div>
@@ -232,7 +233,7 @@ export default function ProfilePage() {
                 </div>
                 {user.topOps.map((op: any, i: number) => (
                   <div key={op.name} style={{ display: 'grid', gridTemplateColumns: '48px 1fr 100px 80px 80px 160px', gap: 14, alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed var(--line-dim)' }}>
-                    <div className={'av md ' + ['h-r', 'h-b', 'h-g', 'h-a', 'h-p'][i % 5]}>{op.name.slice(0, 2)}</div>
+                    <OperatorIcon name={op.name} size={36} />
                     <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 15 }}>{op.name}</div>
                     <div className="mono" style={{ fontSize: 11, color: op.role === 'ATK' ? 'var(--accent)' : 'var(--accent-2)' }}>{op.role}</div>
                     <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{op.kd}</div>

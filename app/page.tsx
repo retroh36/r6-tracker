@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { OperatorIcon } from './components/OperatorIcon';
 
 export default function LandingPage() {
   return (
@@ -305,6 +306,7 @@ export default function LandingPage() {
                 ].map(op => (
                   <div key={op.id} className={'op' + (op.primary ? ' primary' : '')}>
                     <div className="op-id">{op.id}</div>
+                    <OperatorIcon name={op.name} size={28} />
                     <div className="op-name">{op.name}</div>
                     <div className="op-role">{op.role}</div>
                   </div>

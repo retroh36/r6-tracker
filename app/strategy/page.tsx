@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { TopNav } from '../components/TopNav';
 import { Corners } from '../components/ui';
+import { OperatorIcon } from '../components/OperatorIcon';
 import { PLAYER, STRATEGY_DATA } from '@/lib/mock-data';
 import Link from 'next/link';
 
@@ -94,7 +95,10 @@ export default function StrategyPage() {
                     </div>
                   </div>
                   <div style={{ paddingTop: 12, borderTop: '1px dashed var(--line-dim)' }}>
-                    <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em', marginBottom: 3 }}>{x.op}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <OperatorIcon name={x.op} size={24} />
+                      <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em' }}>{x.op}</div>
+                    </div>
                     <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 9, color: 'var(--accent)', letterSpacing: '0.16em', marginBottom: 10 }}>{x.role}</div>
                     <div style={{ fontSize: 11, color: 'var(--fg-dim)', lineHeight: 1.45 }}>{x.note}</div>
                   </div>
