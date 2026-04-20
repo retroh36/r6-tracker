@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { OperatorIcon } from './components/OperatorIcon';
+import { createClient } from '@/lib/supabase/server';
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const cta = user ? '/upload' : '/signin';
   return (
     <div className="landing-bg">
       {/* NAV */}
@@ -17,7 +21,7 @@ export default function LandingPage() {
               <a href="#proof">Squads</a>
             </div>
             <div className="nav-cta">
-              <Link href="/signin" className="btn primary">
+              <Link href={cta} className="btn primary">
                 <span>Get Started</span>
                 <span className="arrow">→</span>
               </Link>
@@ -45,7 +49,7 @@ export default function LandingPage() {
             </p>
 
             <div className="hero-ctas">
-              <Link href="/upload" className="btn primary">
+              <Link href={cta} className="btn primary">
                 <span>Run Squad Analysis</span>
                 <span className="arrow">→</span>
               </Link>
@@ -398,7 +402,7 @@ export default function LandingPage() {
           <div className="tac">// READY WHEN YOU ARE</div>
           <h2>Stop theorycrafting.<br />Start <em>executing.</em></h2>
           <p>Free for your first squad and your first three map reports. Takes about ninety seconds from sign-in to gameplan.</p>
-          <Link href="/signin" className="btn primary">
+          <Link href={cta} className="btn primary">
             <span>Get Started — It&apos;s Free</span>
             <span className="arrow">→</span>
           </Link>

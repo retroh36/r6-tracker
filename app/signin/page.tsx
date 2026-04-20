@@ -1,11 +1,21 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Corners } from '../components/ui';
 import { createClient } from '@/lib/supabase/browser';
 
+function validateRedirect(value: string | null): string | null {
+  if (!value) return null;
+  if (!value.startsWith('/')) return null;
+  if (value.includes('://')) return null;
+  if (value.length > 200) return null;
+  return value;
+}
+
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = validateRedirect(searchParams.get('redirect'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -36,10 +46,14 @@ export default function SignInPage() {
       }
     }
 
-    const hasAnalysis = (() => {
-      try { return !!JSON.parse(sessionStorage.getItem('r6_analysis') || ''); } catch { return false; }
-    })();
-    router.push(hasAnalysis ? '/profile' : '/upload');
+    if (redirectTo) {
+      router.push(redirectTo);
+    } else {
+      const hasAnalysis = (() => {
+        try { return !!JSON.parse(sessionStorage.getItem('r6_analysis') || ''); } catch { return false; }
+      })();
+      router.push(hasAnalysis ? '/profile' : '/upload');
+    }
     router.refresh();
   };
 
@@ -161,15 +175,6 @@ export default function SignInPage() {
                 : <><span>{mode === 'signin' ? 'AUTHENTICATE' : 'DEPLOY ACCOUNT'}</span><span className="arrow">→</span></>}
             </button>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, fontFamily: "'JetBrains Mono'", fontSize: 10, color: 'var(--fg-mute)', letterSpacing: '0.2em' }}>
-              <div style={{ height: 1, background: 'var(--line-dim)' }}></div>
-              <span>OR</span>
-              <div style={{ height: 1, background: 'var(--line-dim)' }}></div>
-            </div>
-
-            <button type="button" className="btn ghost tall" onClick={() => router.push('/upload')}>
-              <span>CONTINUE AS GUEST · DEMO MODE</span>
-            </button>
           </div>
 
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px dashed var(--line-dim)', fontSize: 12, color: 'var(--fg-mute)', textAlign: 'center' }}>

@@ -110,8 +110,8 @@ section{position:relative}
 }
 .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
 .brand{display:flex;align-items:center;gap:12px;cursor:pointer}
-.brand-img{height:38px;width:auto;display:block}
-@media (max-width:600px){.brand-img{height:28px}}
+.brand-img{height:50px;width:auto;display:block}
+@media (max-width:600px){.brand-img{height:36px}}
 .nav-links{display:flex;gap:4px;align-items:center}
 .nav-link{
   padding:8px 14px;font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--fg-mute);

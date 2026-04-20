@@ -127,27 +127,27 @@ export async function POST(request: NextRequest) {
     const coaching = await coachPlayer(stats);
     const now = new Date().toISOString();
 
-    // Persist to Supabase if logged in, skip silently for guests
+    // Persist to Supabase
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (!user) {
+      return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
+    }
+
     let dbError = false;
 
-    if (user) {
-      const { error } = await supabase.from('profiles').upsert({
-        id: user.id,
-        ubisoft_username: username,
-        stats,
-        coaching,
-        updated_at: now,
-      }, { onConflict: 'id' });
+    const { error } = await supabase.from('profiles').upsert({
+      id: user.id,
+      ubisoft_username: username,
+      stats,
+      coaching,
+      updated_at: now,
+    }, { onConflict: 'id' });
 
-      if (error) {
-        console.error('DB upsert failed:', error);
-        dbError = true;
-      }
-    } else {
-      console.log('Guest analysis — skipping DB write');
+    if (error) {
+      console.error('DB upsert failed:', error);
+      dbError = true;
     }
 
     return NextResponse.json({

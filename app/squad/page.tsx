@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { TopNav } from '../components/TopNav';
 import { Corners, Pill, Bar } from '../components/ui';
 import { useAuth } from '../context/auth-context';
@@ -320,33 +319,6 @@ export default function SquadPage() {
 
   const memberCount = activeSquad?.squad_members.length ?? 0;
   const canGenerate = memberCount >= 3 && !!selectedMap && !generating;
-
-  // --- Render: not logged in ---
-
-  if (!email) {
-    return (
-      <>
-        <TopNav user={PLAYER} />
-        <div className="page page-bg-grid">
-          <div className="wrap">
-            <div className="corners" style={{ background: 'var(--panel)', border: '1px solid var(--line)', padding: 48, position: 'relative', textAlign: 'center', marginTop: 40 }}>
-              <Corners />
-              <div className="tac" style={{ color: 'var(--accent)', marginBottom: 16 }}>// AUTHENTICATION REQUIRED</div>
-              <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 'clamp(24px,3vw,36px)', letterSpacing: '-0.02em', marginBottom: 12 }}>
-                Sign in to build your squad.
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--fg-dim)', lineHeight: 1.5, maxWidth: 480, margin: '0 auto 28px' }}>
-                Create a 5-stack, add players by searching their uploaded profiles, and generate map-specific gameplans.
-              </div>
-              <Link href="/signin" className="btn primary">
-                <span>SIGN IN</span><span className="arrow">→</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   // --- Render: loading ---
 

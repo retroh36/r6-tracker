@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+const PROTECTED_ROUTES = ['/upload', '/profile', '/squad', '/strategy', '/dashboard'];
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -25,8 +27,15 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh the session — don't protect any routes
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Redirect unauthenticated users from protected routes to /signin
+  if (!user && PROTECTED_ROUTES.some(r => request.nextUrl.pathname.startsWith(r))) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/signin';
+    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }

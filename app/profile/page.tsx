@@ -7,7 +7,7 @@ import { Pill, StatCell, Corners, Bar, CompareBar } from '../components/ui';
 import { OperatorIcon } from '../components/OperatorIcon';
 import { useAnalysis } from '../context/analysis-context';
 import { useAuth } from '../context/auth-context';
-import { PLAYER, COACH_REPORT } from '@/lib/mock-data';
+import { PLAYER, COACH_REPORT } from '@/lib/mock-data'; // PLAYER used as TopNav fallback during loading
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -55,8 +55,8 @@ export default function ProfilePage() {
 
   const hasReal = !!result;
 
-  // Empty state for logged-in users with no data
-  if (!hasReal && email) {
+  // Empty state — no analysis data yet
+  if (!hasReal) {
     return (
       <>
         <TopNav user={PLAYER} />
