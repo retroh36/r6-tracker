@@ -797,7 +797,7 @@ export default function SquadPage() {
               .mapc{padding:14px 12px;background:var(--bg-2);border:1px solid var(--line-dim);cursor:pointer;transition:all .12s;text-align:left;position:relative}
               .mapc:hover{border-color:var(--fg-dim)}
               .mapc.on{border-color:var(--accent);background:linear-gradient(180deg, oklch(0.705 0.205 38 / 0.12), transparent)}
-              .mapc .ico{width:100%;height:54px;background:var(--bg-3);border:1px solid var(--line-dim);position:relative;margin-bottom:10px;overflow:hidden}
+              .mapc .ico{width:100%;aspect-ratio:16/9;background:var(--bg-3);border:1px solid var(--line-dim);position:relative;margin-bottom:10px;overflow:hidden}
               .mapc.on .ico{border-color:var(--accent)}
               .mapc .ico::before,.mapc .ico::after{content:"";position:absolute;background:var(--fg-mute)}
               .mapc.on .ico::before,.mapc.on .ico::after{background:var(--accent)}
@@ -818,7 +818,15 @@ export default function SquadPage() {
                 {MAPS.map(m => (
                   <div key={m.slug} className={'mapc corners' + (selectedMap === m.name ? ' on' : '')} onClick={() => setSelectedMap(m.name)}>
                     {selectedMap === m.name && <><span className="c-tl" style={{ width: 10, height: 10 }}></span><span className="c-tr" style={{ width: 10, height: 10 }}></span></>}
-                    <div className="ico"></div>
+                    <div className="ico">
+                      <img
+                        src={`/maps/${m.slug}-cover.jpg`}
+                        alt={m.name}
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
                     <div className="mn">{m.name}</div>
                     <div className="mm">
                       {selectedMap === m.name ? '● SELECTED' : `POOL · ${m.tier}-TIER`}

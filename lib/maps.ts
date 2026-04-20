@@ -54,7 +54,7 @@ export const MAPS: MapInfo[] = [
     { floor: 3, label: '2F', file: 'consulate-floor-3.jpg' },
     { floor: 4, label: 'ROOF', file: 'consulate-floor-4.jpg' },
   ]},
-  { slug: 'kafe', name: 'Kafe Dostoyevsky', tier: 'B', blueprints: [] },
+  { slug: 'kafe-dostoyevsky', name: 'Kafe Dostoyevsky', tier: 'B', blueprints: [] },
   { slug: 'villa', name: 'Villa', tier: 'B', blueprints: [
     { floor: 1, label: 'B', file: 'villa-floor-1.jpg' },
     { floor: 2, label: '1F', file: 'villa-floor-2.jpg' },
