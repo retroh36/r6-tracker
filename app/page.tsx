@@ -9,8 +9,7 @@ export default function LandingPage() {
         <div className="wrap">
           <nav>
             <Link className="brand" href="/">
-              <div className="brand-mark" aria-hidden="true"></div>
-              <div className="brand-name">R6 <span>/</span> SQUAD ANALYZER</div>
+              <img src="/wordmark.png" alt="R6 Squad Analyzer" className="brand-img" />
             </Link>
             <div className="landing-links">
               <a href="#how">How it works</a>
@@ -412,8 +411,7 @@ export default function LandingPage() {
           <div className="foot-grid">
             <div className="foot-brand">
               <div className="brand" style={{ alignItems: 'flex-start' }}>
-                <div className="brand-mark" aria-hidden="true"></div>
-                <div className="brand-name">R6 <span>/</span> SQUAD ANALYZER</div>
+                <img src="/wordmark.png" alt="R6 Squad Analyzer" style={{ height: 28, width: 'auto' }} />
               </div>
               <p>An independent coaching layer for competitive Rainbow Six squads. Built by players who were tired of losing post-plants.</p>
             </div>

@@ -65,15 +65,3 @@ export function Disclaimer() {
     </div>
   );
 }
-
-export function BrandMark({ size = 34 }: { size?: number }) {
-  return (
-    <div style={{
-      width: size, height: size, display: 'grid', placeItems: 'center',
-      background: 'linear-gradient(135deg, var(--accent), oklch(0.62 0.22 25))',
-      clipPath: 'polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%)',
-    }}>
-      <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: size * 0.35, color: '#0c0c10' }}>R6</span>
-    </div>
-  );
-}

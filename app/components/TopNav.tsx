@@ -24,8 +24,7 @@ export function TopNav({ user }: { user: NavUser }) {
     <div className="nav">
       <div className="wrap nav-inner">
         <Link href="/dashboard" className="brand">
-          <div className="brand-mark" aria-hidden="true"></div>
-          <div className="brand-name">R6 <span>/</span> SQUAD ANALYZER</div>
+          <img src="/wordmark.png" alt="R6 Squad Analyzer" className="brand-img" />
         </Link>
         <div className="nav-links">
           {links.map(l => (

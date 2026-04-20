@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Corners, BrandMark } from '../components/ui';
+import { Corners } from '../components/ui';
 import { createClient } from '@/lib/supabase/browser';
 
 export default function SignInPage() {
@@ -63,8 +63,7 @@ export default function SignInPage() {
       {/* LEFT */}
       <div className="signin-left" style={{ padding: '56px 56px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid var(--line-dim)', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <BrandMark />
-          <div className="brand-name" style={{ fontSize: 16 }}>R6 <span style={{ color: 'var(--accent)' }}>/</span> SQUAD ANALYZER</div>
+          <img src="/wordmark.png" alt="R6 Squad Analyzer" className="brand-img" />
         </div>
 
         <div>
