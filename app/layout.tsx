@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { createClient } from '@/lib/supabase/server';
+import { AuthProvider } from './context/auth-context';
 import { AnalysisProvider } from './context/analysis-context';
 import './globals.css';
 
@@ -7,7 +9,10 @@ export const metadata: Metadata = {
   description: 'Tactical coaching for ranked Rainbow Six Siege squads',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <html lang="en">
       <head>
@@ -19,9 +24,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <AnalysisProvider>
-          {children}
-        </AnalysisProvider>
+        <AuthProvider email={user?.email ?? null}>
+          <AnalysisProvider>
+            {children}
+          </AnalysisProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,8 +1,8 @@
-// TODO: wire to real backend
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Corners, BrandMark } from '../components/ui';
+import { createClient } from '@/lib/supabase/browser';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -10,12 +10,37 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-    setTimeout(() => router.push('/upload'), 800);
+    setErrorMsg('');
+
+    const supabase = createClient();
+
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+        return;
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    const hasAnalysis = (() => {
+      try { return !!JSON.parse(sessionStorage.getItem('r6_analysis') || ''); } catch { return false; }
+    })();
+    router.push(hasAnalysis ? '/profile' : '/upload');
+    router.refresh();
   };
 
   return (
@@ -87,7 +112,7 @@ export default function SignInPage() {
             </div>
             <div style={{ display: 'flex', gap: 0, border: '1px solid var(--line-dim)' }}>
               {(['signin', 'signup'] as const).map(m => (
-                <button key={m} type="button" onClick={() => setMode(m)} style={{
+                <button key={m} type="button" onClick={() => { setMode(m); setErrorMsg(''); }} style={{
                   padding: '8px 12px', fontFamily: "'JetBrains Mono'", fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.14em',
                   background: mode === m ? 'var(--accent)' : 'transparent',
                   color: mode === m ? '#0c0c10' : 'var(--fg-dim)',
@@ -96,6 +121,13 @@ export default function SignInPage() {
               ))}
             </div>
           </div>
+
+          {errorMsg && (
+            <div style={{ padding: '10px 14px', border: '1px solid var(--danger)', background: 'oklch(0.650 0.230 25 / 0.08)', marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ width: 18, height: 18, background: 'var(--danger)', color: '#0c0c10', display: 'grid', placeItems: 'center', fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 10, clipPath: 'polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%)', flex: 'none' }}>!</div>
+              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: 'var(--danger)', letterSpacing: '0.04em' }}>{errorMsg}</div>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gap: 18 }}>
             <div className="field">
@@ -143,8 +175,8 @@ export default function SignInPage() {
 
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px dashed var(--line-dim)', fontSize: 12, color: 'var(--fg-mute)', textAlign: 'center' }}>
             {mode === 'signin'
-              ? <>No account? <a href="#" onClick={e => { e.preventDefault(); setMode('signup'); }} style={{ color: 'var(--accent)' }}>Enlist →</a></>
-              : <>Already in the fight? <a href="#" onClick={e => { e.preventDefault(); setMode('signin'); }} style={{ color: 'var(--accent)' }}>Sign in →</a></>}
+              ? <>No account? <a href="#" onClick={e => { e.preventDefault(); setMode('signup'); setErrorMsg(''); }} style={{ color: 'var(--accent)' }}>Enlist →</a></>
+              : <>Already in the fight? <a href="#" onClick={e => { e.preventDefault(); setMode('signin'); setErrorMsg(''); }} style={{ color: 'var(--accent)' }}>Sign in →</a></>}
           </div>
         </form>
       </div>
