@@ -4,16 +4,19 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface AnalysisResult {
   stats: any;
   coaching: any;
+  updated_at?: string;
 }
 
 interface AnalysisContextType {
   result: AnalysisResult | null;
   setResult: (r: AnalysisResult | null) => void;
+  loaded: boolean;
 }
 
 const AnalysisContext = createContext<AnalysisContextType>({
   result: null,
   setResult: () => {},
+  loaded: false,
 });
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
@@ -38,7 +41,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AnalysisContext.Provider value={{ result, setResult }}>
+    <AnalysisContext.Provider value={{ result, setResult, loaded }}>
       {children}
     </AnalysisContext.Provider>
   );

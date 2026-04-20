@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 
@@ -16,6 +16,10 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ email: initialEmail, children }: { email: string | null; children: ReactNode }) {
   const [email, setEmail] = useState(initialEmail);
   const router = useRouter();
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
 
   const signOut = useCallback(async () => {
     const supabase = createClient();

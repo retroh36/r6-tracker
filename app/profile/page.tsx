@@ -1,20 +1,87 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { TopNav } from '../components/TopNav';
 import { Pill, StatCell, Corners, Bar, CompareBar } from '../components/ui';
 import { OperatorIcon } from '../components/OperatorIcon';
 import { useAnalysis } from '../context/analysis-context';
+import { useAuth } from '../context/auth-context';
 import { PLAYER, COACH_REPORT } from '@/lib/mock-data';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { result } = useAnalysis();
+  const { result, setResult, loaded } = useAnalysis();
+  const { email } = useAuth();
   const [tab, setTab] = useState('coach');
+  const [dbChecked, setDbChecked] = useState(false);
 
-  // Build user + report from real data or fall back to mock
+  // For logged-in users, always fetch from DB and pick whichever is newer
+  useEffect(() => {
+    if (!loaded || !email) {
+      if (loaded && !email) setDbChecked(true);
+      return;
+    }
+
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(db => {
+        if (db.stats && db.coaching) {
+          const dbTime = db.updated_at ? new Date(db.updated_at).getTime() : 0;
+          const localTime = result?.updated_at ? new Date(result.updated_at).getTime() : 0;
+
+          if (dbTime >= localTime) {
+            setResult({ stats: db.stats, coaching: db.coaching, updated_at: db.updated_at });
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDbChecked(true));
+  }, [loaded, email]);
+
+  // Show loading while sessionStorage hydrates or DB fetch is in flight
+  if (!loaded || (email && !dbChecked)) {
+    return (
+      <>
+        <TopNav user={PLAYER} />
+        <div className="page page-bg-grid">
+          <div className="wrap" style={{ paddingTop: 80, textAlign: 'center' }}>
+            <div className="tac anim-pulse" style={{ color: 'var(--accent)' }}>// LOADING PROFILE...</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const hasReal = !!result;
 
+  // Empty state for logged-in users with no data
+  if (!hasReal && email) {
+    return (
+      <>
+        <TopNav user={PLAYER} />
+        <div className="page page-bg-grid">
+          <div className="wrap">
+            <div className="corners" style={{ background: 'var(--panel)', border: '1px solid var(--line)', padding: 48, position: 'relative', textAlign: 'center', marginTop: 40 }}>
+              <Corners />
+              <div className="tac" style={{ color: 'var(--accent)', marginBottom: 16 }}>// NO ANALYSIS FOUND</div>
+              <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 'clamp(24px,3vw,36px)', letterSpacing: '-0.02em', marginBottom: 12 }}>
+                No analysis yet — upload your stats.
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--fg-dim)', lineHeight: 1.5, maxWidth: 480, margin: '0 auto 28px' }}>
+                Drop your Tracker Network screenshots on the upload page and we&apos;ll generate your coaching report.
+              </div>
+              <Link href="/upload" className="btn primary">
+                <span>UPLOAD STATS</span><span className="arrow">→</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Build user + report from real data or fall back to mock
   const user = hasReal ? {
     username: result.stats.username || 'Unknown',
     handle: (result.stats.username || 'USER').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) + '-01',

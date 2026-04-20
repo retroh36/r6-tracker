@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@/lib/supabase/server';
 
-const client = new Anthropic();
+const anthropic = new Anthropic();
 const MODEL = 'claude-opus-4-5';
 
 async function extractStats(imageBlocks: any[], username: string) {
-  const response = await client.messages.create({
+  const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2048,
     messages: [{
@@ -35,7 +36,7 @@ Use null for any data not visible in the screenshots. Return ONLY valid JSON, no
 }
 
 async function coachPlayer(stats: any) {
-  const response = await client.messages.create({
+  const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2500,
     system: `You are an expert Rainbow Six Siege coach with deep knowledge of operator meta, map strategy, and pro-league tactics. Every tip must reference specific stats or R6 mechanics — never generic advice.`,
@@ -124,8 +125,37 @@ export async function POST(request: NextRequest) {
 
     const stats = await extractStats(imageBlocks, username);
     const coaching = await coachPlayer(stats);
+    const now = new Date().toISOString();
 
-    return NextResponse.json({ stats, coaching });
+    // Persist to Supabase if logged in, skip silently for guests
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let dbError = false;
+
+    if (user) {
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        ubisoft_username: username,
+        stats,
+        coaching,
+        updated_at: now,
+      }, { onConflict: 'id' });
+
+      if (error) {
+        console.error('DB upsert failed:', error);
+        dbError = true;
+      }
+    } else {
+      console.log('Guest analysis — skipping DB write');
+    }
+
+    return NextResponse.json({
+      stats,
+      coaching,
+      updated_at: now,
+      ...(dbError ? { dbError: true } : {}),
+    });
   } catch (err: any) {
     console.error('Analysis error:', err);
     return NextResponse.json(

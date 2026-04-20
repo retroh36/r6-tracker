@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/auth-context';
+import { useAnalysis } from '../context/analysis-context';
 
 interface NavUser {
   username: string;
@@ -19,6 +20,17 @@ const links = [
 export function TopNav({ user }: { user: NavUser }) {
   const pathname = usePathname();
   const { email, signOut } = useAuth();
+  const { result } = useAnalysis();
+
+  // Logged-in: derive display from auth + real analysis data
+  // Guest: fall back to mock props
+  const rank = email
+    ? (result?.stats?.rank || null)
+    : user.rank;
+
+  const initials = email
+    ? email.split('@')[0].slice(0, 2).toUpperCase()
+    : user.avatar.initials;
 
   return (
     <div className="nav">
@@ -40,7 +52,8 @@ export function TopNav({ user }: { user: NavUser }) {
         <div className="nav-user">
           <div className="meta" style={{ textAlign: 'right' }}>
             <div className="un">{email ?? user.username}</div>
-            <div className="rk">{email ? user.rank : 'GUEST'}</div>
+            {rank && <div className="rk">{rank}</div>}
+            {!email && !rank && <div className="rk">GUEST</div>}
           </div>
           {email ? (
             <button
@@ -49,7 +62,7 @@ export function TopNav({ user }: { user: NavUser }) {
               title="Sign out"
               style={{ cursor: 'pointer', position: 'relative' }}
             >
-              {user.avatar.initials}
+              {initials}
               <span style={{
                 position: 'absolute', bottom: -3, right: -3,
                 width: 8, height: 8, borderRadius: '50%',
@@ -59,7 +72,7 @@ export function TopNav({ user }: { user: NavUser }) {
             </button>
           ) : (
             <Link href="/signin" className={'av sm ' + user.avatar.theme} title="Sign in">
-              {user.avatar.initials}
+              {initials}
             </Link>
           )}
         </div>
